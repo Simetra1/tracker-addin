@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tracker Manager</title>
+
+  <!-- Office.js — required for all Office Add-ins -->
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:      #1F3864;
+      --blue:      #2E75B6;
+      --blue-lt:   #BDD7EE;
+      --green-dk:  #375623;
+      --green-lt:  #E2EFDA;
+      --amber-dk:  #7F6000;
+      --amber-lt:  #FFF2CC;
+      --red-dk:    #9C0006;
+      --red-lt:    #FFC7CE;
+      --teal-dk:   #00695C;
+      --teal-lt:   #E0F5F3;
+      --gray-lt:   #F4F6F9;
+      --gray-mid:  #E2E6EC;
+      --gray-dk:   #6B7280;
+      --text:      #1A1A2E;
+      --white:     #FFFFFF;
+      --border:    #DDE3ED;
+      --stripe:    #F0F5FF;
+      --radius:    6px;
+      --radius-sm: 4px;
+      --shadow:    0 1px 3px rgba(31,56,100,0.08), 0 1px 2px rgba(31,56,100,0.04);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--white);
+      overflow: hidden;
+    }
+
+    /* ── Layout ───────────────────────────────────────────────────────────── */
+    .shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    .header {
+      background: var(--navy);
+      padding: 14px 16px 12px;
+      flex-shrink: 0;
+    }
+    .header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: var(--blue);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .brand-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--white);
+      letter-spacing: -0.01em;
+    }
+    .brand-sub {
+      font-size: 10px;
+      color: var(--blue-lt);
+      margin-top: 1px;
+    }
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #4ADE80;
+      box-shadow: 0 0 0 2px rgba(74,222,128,0.25);
+    }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: var(--white);
+      border-bottom: 1.5px solid var(--border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 6px 9px;
+      font-size: 11.5px;
+      font-weight: 500;
+      text-align: center;
+      cursor: pointer;
+      color: var(--gray-dk);
+      border-bottom: 2.5px solid transparent;
+      margin-bottom: -1.5px;
+      transition: color 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+    .tab:hover { color: var(--navy); }
+    .tab.active {
+      color: var(--navy);
+      border-bottom-color: var(--blue);
+      font-weight: 600;
+    }
+
+    /* ── Pane scroll area ─────────────────────────────────────────────────── */
+    .panes {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .pane {
+      position: absolute;
+      inset: 0;
+      overflow-y: auto;
+      padding: 16px;
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .pane.active { display: flex; }
+
+    /* ── Scrollbar ────────────────────────────────────────────────────────── */
+    .pane::-webkit-scrollbar { width: 5px; }
+    .pane::-webkit-scrollbar-track { background: transparent; }
+    .pane::-webkit-scrollbar-thumb { background: var(--gray-mid); border-radius: 3px; }
+
+    /* ── Section labels ───────────────────────────────────────────────────── */
+    .section {
+      margin-top: 6px;
+      margin-bottom: 2px;
+    }
+    .section-label {
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--gray-dk);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 10px;
+    }
+
+    /* ── Form fields ──────────────────────────────────────────────────────── */
+    .field {
+      margin-bottom: 10px;
+    }
+    .field label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--gray-dk);
+      margin-bottom: 4px;
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+    .field input:focus,
+    .field select:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(46,117,182,0.12);
+    }
+    .field input::placeholder { color: #B0B8C8; }
+    .select-wrap {
+      position: relative;
+    }
+    .select-wrap::after {
+      content: '▾';
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 11px;
+      color: var(--gray-dk);
+      pointer-events: none;
+    }
+    .select-wrap select { padding-right: 28px; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: inherit;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.08s, box-shadow 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 7px;
+    }
+    .btn:active { transform: scale(0.98); }
+
+    .btn-primary {
+      background: var(--navy);
+      color: var(--white);
+      box-shadow: var(--shadow);
+    }
+    .btn-primary:hover { background: var(--blue); box-shadow: 0 2px 6px rgba(31,56,100,0.2); }
+
+    .btn-secondary {
+      background: var(--white);
+      color: var(--navy);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover { background: var(--gray-lt); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--gray-dk);
+      border: 1px solid var(--border);
+      font-weight: 500;
+      font-size: 11.5px;
+    }
+    .btn-ghost:hover { background: var(--gray-lt); color: var(--text); }
+
+    .btn-danger {
+      background: var(--white);
+      color: var(--red-dk);
+      border: 1px solid #F5C6CB;
+    }
+    .btn-danger:hover { background: var(--red-lt); }
+
+    .btn-icon { font-size: 14px; }
+
+    /* ── Divider ──────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 12px 0;
+    }
+
+    /* ── View buttons (Views tab) ─────────────────────────────────────────── */
+    .view-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 9px 11px;
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--white);
+      cursor: pointer;
+      text-align: left;
+      transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+      font-family: inherit;
+    }
+    .view-btn:hover {
+      background: var(--stripe);
+      border-color: var(--blue-lt);
+      box-shadow: var(--shadow);
+    }
+    .view-btn.active-view {
+      background: var(--stripe);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 2px rgba(46,117,182,0.15);
+    }
+    .view-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+    }
+    .view-text { flex: 1; }
+    .view-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .view-desc {
+      font-size: 10px;
+      color: var(--gray-dk);
+      margin-top: 1px;
+    }
+
+    /* ── Stat rows (Export tab) ───────────────────────────────────────────── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 4px;
+    }
+    .stat-card {
+      background: var(--gray-lt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--navy);
+      line-height: 1;
+    }
+    .stat-label {
+      font-size: 9.5px;
+      color: var(--gray-dk);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-top: 4px;
+    }
+    .stat-card.green  { background: var(--green-lt); border-color: #B8D4A8; }
+    .stat-card.green .stat-value  { color: var(--green-dk); }
+    .stat-card.amber  { background: var(--amber-lt); border-color: #E6D080; }
+    .stat-card.amber .stat-value  { color: var(--amber-dk); }
+    .stat-card.red    { background: var(--red-lt);   border-color: #F0A8B0; }
+    .stat-card.red .stat-value    { color: var(--red-dk); }
+
+    .flag-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: var(--amber-lt);
+      border: 1px solid #E6D080;
+      border-radius: var(--radius-sm);
+      margin-bottom: 7px;
+      font-size: 11px;
+    }
+    .flag-row span:first-child { color: var(--amber-dk); font-weight: 500; }
+    .badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .badge-amber { background: #E6D080; color: var(--amber-dk); }
+
+    /* ── Note box ─────────────────────────────────────────────────────────── */
+    .note {
+      font-size: 10.5px;
+      color: var(--gray-dk);
+      background: var(--gray-lt);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue-lt);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      line-height: 1.55;
+      margin-top: 4px;
+    }
+
+    /* ── Toast notification ───────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      background: var(--navy);
+      color: var(--white);
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      display: none;
+      align-items: center;
+      gap: 8px;
+      z-index: 100;
+      animation: slideUp 0.2s ease;
+    }
+    .toast.show { display: flex; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Coming soon badge ────────────────────────────────────────────────── */
+    .soon {
+      display: inline-block;
+      font-size: 8.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--blue-lt);
+      color: var(--blue);
+      padding: 1px 5px;
+      border-radius: 3px;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────────────────── */
+    .footer {
+      padding: 8px 16px;
+      border-top: 1px solid var(--border);
+      background: var(--gray-lt);
+      font-size: 10px;
+      color: var(--gray-dk);
+      text-align: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Header ─────────────────────────────────────────────────────────── -->
+  <div class="header">
+    <div class="header-top">
+      <div class="brand">
+        <div class="brand-icon">📋</div>
+        <div>
+          <div class="brand-name">Tracker Manager</div>
+          <div class="brand-sub">Project Document Tracker</div>
+        </div>
+      </div>
+      <div class="status-dot" title="Add-in connected"></div>
+    </div>
+  </div>
+
+  <!-- ── Tabs ───────────────────────────────────────────────────────────── -->
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('add', this)">Add / Edit</div>
+    <div class="tab" onclick="switchTab('views', this)">Views</div>
+    <div class="tab" onclick="switchTab('export', this)">Export</div>
+  </div>
+
+  <!-- ── Pane area ──────────────────────────────────────────────────────── -->
+  <div class="panes">
+
+    <!-- ADD / EDIT TAB ─────────────────────────────────────────────────── -->
+    <div class="pane active" id="pane-add">
+
+      <div class="section">
+        <div class="section-label">Add new project</div>
+        <div class="field">
+          <label>Project name</label>
+          <input type="text" id="proj-name" placeholder="e.g. Project Lambda" maxlength="50" />
+        </div>
+        <div class="field">
+          <label>Starting status for all documents</label>
+          <div class="select-wrap">
+            <select id="proj-status">
+              <option value="pending">&#8212; (outstanding)</option>
+              <option value="received">Received</option>
+              <option value="na">N/A</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="mockAction('add-project')">
+          <span class="btn-icon">+</span> Add project row
+        </button>
+      </div>
+
+      <hr class="divider">
+
+      <div class="section">
+        <div class="section-label">Add new document column</div>
+        <div class="field">
+          <label>Document name</label>
+          <input type="text" id="doc-name" placeholder="e.g. Board Resolution" maxlength="50" />
+        </div>
+        <div class="field">
+          <label>Insert after</label>
+          <div class="select-wrap">
+            <select id="doc-after">
+              <option>Invoice (last)</option>
+              <option>Engagement Letter</option>
+              <option>NDA / Confidentiality Agmt</option>
+              <option>Signed Proposal</option>
+              <option>Kickoff Meeting Notes</option>
+              <option>Data Request Form</option>
+              <option>Source Documents Package</option>
+              <option>Draft Report</option>
+              <option>Management Response</option>
+              <option>Final Report</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="mockAction('add-doc')">
+          <span class="btn-icon">+</span> Add document columns
+        </button>
+      </div>
+
+      <hr class="divider">
+
+      <div class="section">
+        <div class="section-label">Remove</div>
+        <div class="field">
+          <label>Select project to remove</label>
+          <div class="select-wrap">
+            <select>
+              <option>— select project —</option>
+              <option>Project Alpha</option>
+              <option>Project Beta</option>
+              <option>Project Gamma</option>
+              <option>Project Delta</option>
+              <option>Project Epsilon</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="mockAction('remove-project')">Remove project row</button>
+
+        <div class="field" style="margin-top:8px">
+          <label>Select document to remove</label>
+          <div class="select-wrap">
+            <select>
+              <option>— select document —</option>
+              <option>Engagement Letter</option>
+              <option>NDA / Confidentiality Agmt</option>
+              <option>Signed Proposal</option>
+              <option>Kickoff Meeting Notes</option>
+              <option>Invoice</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-danger" onclick="mockAction('remove-doc')">Remove document columns</button>
+      </div>
+
+    </div>
+
+    <!-- VIEWS TAB ──────────────────────────────────────────────────────── -->
+    <div class="pane" id="pane-views">
+
+      <div class="section">
+        <div class="section-label">Column view</div>
+
+        <button class="view-btn active-view" onclick="setView(this, 'full')">
+          <div class="view-icon" style="background:var(--green-lt);color:var(--green-dk)">≡≡</div>
+          <div class="view-text">
+            <div class="view-title">Full view</div>
+            <div class="view-desc">Status · Client Comment · Internal Comment</div>
+          </div>
+        </button>
+
+        <button class="view-btn" onclick="setView(this, 'client')">
+          <div class="view-icon" style="background:var(--teal-lt);color:var(--teal-dk)">≡c</div>
+          <div class="view-text">
+            <div class="view-title">Client view</div>
+            <div class="view-desc">Status · Client Comment only — internal hidden</div>
+          </div>
+        </button>
+
+        <button class="view-btn" onclick="setView(this, 'status')">
+          <div class="view-icon" style="background:var(--gray-lt);color:var(--gray-dk)">✓</div>
+          <div class="view-text">
+            <div class="view-title">Status only</div>
+            <div class="view-desc">Received / not — fastest overview</div>
+          </div>
+        </button>
+
+      </div>
+
+      <hr class="divider">
+
+      <div class="section">
+        <div class="section-label">Filter rows</div>
+        <div class="field">
+          <label>Show projects where</label>
+          <div class="select-wrap">
+            <select id="filter-select">
+              <option value="all">All projects</option>
+              <option value="outstanding">Any document outstanding</option>
+              <option value="complete">All documents received</option>
+              <option value="notes">Has internal notes</option>
+              <option value="notfinal">Has Received-Not Final</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="mockAction('apply-filter')">Apply filter</button>
+        <button class="btn btn-ghost" onclick="mockAction('clear-filter')">Clear filter</button>
+        <div class="note">
+          Filters apply to the live sheet and can be cleared at any time without losing data.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- EXPORT TAB ─────────────────────────────────────────────────────── -->
+    <div class="pane" id="pane-export">
+
+      <div class="section">
+        <div class="section-label">Current snapshot</div>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value">10</div>
+            <div class="stat-label">Total projects</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-value">2</div>
+            <div class="stat-label">Fully received</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-value">7</div>
+            <div class="stat-label">In progress</div>
+          </div>
+          <div class="stat-card red">
+            <div class="stat-value">1</div>
+            <div class="stat-label">Not started</div>
+          </div>
+        </div>
+
+        <div class="flag-row">
+          <span>⚠ Internal notes flagged</span>
+          <span class="badge badge-amber">4 notes</span>
+        </div>
+
+        <div class="note">
+          Numbers reflect current data in the Project Tracker tab. Review flagged internal notes before exporting to clients.
+        </div>
+      </div>
+
+      <hr class="divider">
+
+      <div class="section">
+        <div class="section-label">Download</div>
+        <button class="btn btn-primary" onclick="mockAction('export-client')">
+          📤 &nbsp;Download client view (.xlsx)
+        </button>
+        <button class="btn btn-secondary" onclick="mockAction('export-full')">
+          📋 &nbsp;Download full tracker (.xlsx)
+        </button>
+        <button class="btn btn-ghost" onclick="mockAction('export-pdf')">
+          📄 &nbsp;Save client view as PDF <span class="soon">soon</span>
+        </button>
+        <div class="note">
+          Client view exports the 'Client Export' tab — Status and Client Comments only. Internal Comment columns are never included.
+        </div>
+      </div>
+
+    </div>
+
+  </div><!-- /panes -->
+
+  <!-- ── Footer ─────────────────────────────────────────────────────────── -->
+  <div class="footer">
+    Tracker Manager v1.0 &nbsp;·&nbsp; mockup build
+  </div>
+
+</div><!-- /shell -->
+
+<!-- ── Toast ───────────────────────────────────────────────────────────── -->
+<div class="toast" id="toast">
+  <span id="toast-icon">✓</span>
+  <span id="toast-msg">Done</span>
+</div>
+
+<script>
+  // ── Office.js initialisation ─────────────────────────────────────────────
+  Office.onReady(function(info) {
+    // When Office.js is ready we'd wire up real Excel calls here.
+    // For now, the add-in loads and all UI is interactive as a mockup.
+    console.log('Tracker Manager loaded. Host:', info.host);
+  });
+
+  // ── Tab switching ────────────────────────────────────────────────────────
+  function switchTab(id, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('pane-' + id).classList.add('active');
+  }
+
+  // ── View toggle ──────────────────────────────────────────────────────────
+  function setView(el, view) {
+    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active-view'));
+    el.classList.add('active-view');
+    const msgs = {
+      full:   'Full view applied — all columns visible',
+      client: 'Client view applied — internal columns hidden',
+      status: 'Status-only view applied — comments hidden',
+    };
+    showToast('👁', msgs[view]);
+    // Real implementation: Office.js column group expand/collapse calls go here
+  }
+
+  // ── Mock action feedback ─────────────────────────────────────────────────
+  function mockAction(action) {
+    const configs = {
+      'add-project':    { icon: '✓', msg: () => { const n = document.getElementById('proj-name').value.trim(); return n ? `Project "${n}" added` : 'Enter a project name first'; }, valid: () => !!document.getElementById('proj-name').value.trim() },
+      'add-doc':        { icon: '✓', msg: () => { const n = document.getElementById('doc-name').value.trim(); return n ? `"${n}" columns added` : 'Enter a document name first'; }, valid: () => !!document.getElementById('doc-name').value.trim() },
+      'remove-project': { icon: '🗑', msg: () => 'Project row removed', valid: () => true },
+      'remove-doc':     { icon: '🗑', msg: () => 'Document columns removed', valid: () => true },
+      'apply-filter':   { icon: '⚡', msg: () => `Filter applied: "${document.getElementById('filter-select').selectedOptions[0].text}"`, valid: () => true },
+      'clear-filter':   { icon: '✕', msg: () => 'Filter cleared — all projects shown', valid: () => true },
+      'export-client':  { icon: '📤', msg: () => 'Client view downloaded', valid: () => true },
+      'export-full':    { icon: '📋', msg: () => 'Full tracker downloaded', valid: () => true },
+      'export-pdf':     { icon: '📄', msg: () => 'PDF export coming in a future version', valid: () => true },
+    };
+    const cfg = configs[action];
+    if (!cfg) return;
+    showToast(cfg.icon, cfg.msg());
+    // Real implementation: Office.js calls replace showToast above
+  }
+
+  // ── Toast helper ─────────────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(icon, msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-icon').textContent = icon;
+    document.getElementById('toast-msg').textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+  }
+</script>
+
+</body>
+</html>
